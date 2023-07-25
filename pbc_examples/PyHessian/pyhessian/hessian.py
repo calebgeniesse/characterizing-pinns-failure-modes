@@ -34,7 +34,7 @@ class hessian():
         iii) the estimated eigenvalue density
     """
 
-    def __init__(self, model, criterion, data=None, dataloader=None, cuda=True):
+    def __init__(self, whole_model, model, criterion, data=None, dataloader=None, cuda=True):
         """
         model: the model that needs Hessain information
         criterion: the loss function
@@ -48,6 +48,7 @@ class hessian():
 
         self.model = model.eval()  # make model is in evaluation model
         self.criterion = criterion
+        self.whole_model = whole_model
 
         if data != None:
             self.data = data
@@ -69,10 +70,15 @@ class hessian():
                 ), self.targets.cuda()
 
             # if we only compute the Hessian information for a single batch data, we can re-use the gradients.
-            outputs = self.model(self.inputs)
-            loss = self.criterion(outputs, self.targets)
-            # loss = self.model.loss_pinn()
+            outputs = self.model(torch.cat([self.inputs, self.targets], dim=1))
+            # print("outputs: ", outputs)
+            # print("targets: ", self.targets)
+            loss = torch.mean((self.targets - outputs) ** 2)
+            print("loss: ", loss.item())
+            # self.whole_model.dnn = self.model
+            # loss = self.whole_model.loss_pinn()
             loss.backward(create_graph=True)
+            # self.whole_model.optimizer.step(loss)
 
         # this step is used to extract the parameters from the model
         params, gradsH = get_params_grad(self.model)

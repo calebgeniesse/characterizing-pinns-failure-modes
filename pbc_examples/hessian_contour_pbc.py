@@ -65,8 +65,8 @@ nu = args.nu
 beta = args.beta
 rho = args.rho
 
-START = -0.05
-END = 0.05
+START = -2.0
+END = 2.0
 STEPS = int(args.steps)
 DIM = int(args.dim)
 POINTS = int(args.points)
@@ -209,33 +209,40 @@ print(torch.tensor(u_star))
 x = torch.tensor(X[:, 0:1], requires_grad=True).float().to(device)
 t = torch.tensor(X[:, 1:2], requires_grad=True).float().to(device)
 
-hessian_comp = hessian(model_init, criterion, data=(x, t), cuda=FLAG)
+hessian_comp = hessian(model, model_init, criterion, data=(x, t), cuda=FLAG)
 top_eigenvalues, top_eigenvector = hessian_comp.eigenvalues(top_n=DIM)
+print("Top eigenvalues: ", top_eigenvalues)
+
 lams = np.linspace(START, END, STEPS).astype(np.float32)
 
 # calculate the hessian loss values
 for j in tqdm.tqdm(range(POINTS), desc="Calculating sampling loss values in the subspace"):
     # adjust the model and fill with a loss with corresponding model parameters
     next_pos = tuple(loss_coordinates[j])
-    model_current = copy.deepcopy(model)
+    model_current = copy.deepcopy(model_init)
     for i in range(DIM):
         model_perb = get_params(model_current, model_perb, top_eigenvector[i], lams[next_pos[i]])
         model_current = copy.deepcopy(model_perb)
     # calculate the loss value
-    data_matrix[j] = criterion(model_current(x), y).item()
+    outputs = model_current(torch.cat([x,t], dim=1))
+    # data_matrix[j] = criterion(outputs, t).detach().cpu().numpy()
+    data_matrix[j] = torch.mean((t - outputs) ** 2).detach().cpu().numpy()
+    # print("Loss value: ", data_matrix[j])
+    # model.dnn = model_current
+    # data_matrix[j] = model.loss_pinn().detach().cpu().numpy()
     # print("Loss value: ", data_matrix[j])
 
-# save the loss values
-np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.npy", data_matrix)
-# save the coordinates
-np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian_coordinates.npy", loss_coordinates)
+# # save the loss values
+# np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.npy", data_matrix)
+# # save the coordinates
+# np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian_coordinates.npy", loss_coordinates)
 
 # plot the loss values
 X, Y = np.meshgrid(np.linspace(START, END, STEPS), np.linspace(START, END, STEPS))
 Z = data_matrix.reshape(STEPS, STEPS)
 fig, ax = plt.subplots()
 ax.contour(X, Y, Z, levels=80)
-plt.title('Hessian Loss landscape of a ' + 'resnet' + str(args.depth) + ' on '+ f"pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}")
+plt.title('Hessian Loss landscape of a PINN on '+ f"pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}")
 # plt.savefig('../models/loss_landscape_'+ DATA + '_' + MODEL + '_hessian.png')
 plt.savefig(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.png")
 
