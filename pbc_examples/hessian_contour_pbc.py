@@ -15,7 +15,8 @@ import torch.backends.cudnn as cudnn
 from utils import *
 from visualize import *
 import matplotlib.pyplot as plt
-from PyHessian.pyhessian import hessian # for calculating the Hessian
+from PyHessian.pyhessian import hessian_pinn
+from PyHessian.pyhessian import hessian
 
 def get_params(model_orig,  model_perb, direction, alpha):
     for m_orig, m_perb, d in zip(model_orig.parameters(), model_perb.parameters(), direction):
@@ -209,7 +210,7 @@ print(torch.tensor(u_star))
 x = torch.tensor(X[:, 0:1], requires_grad=True).float().to(device)
 t = torch.tensor(X[:, 1:2], requires_grad=True).float().to(device)
 
-hessian_comp = hessian(model, model_init, criterion, data=(x, t), cuda=FLAG)
+hessian_comp = hessian_pinn(model, model_init, criterion, data=(x, t), cuda=FLAG)
 top_eigenvalues, top_eigenvector = hessian_comp.eigenvalues(top_n=DIM)
 print("Top eigenvalues: ", top_eigenvalues)
 
@@ -224,18 +225,44 @@ for j in tqdm.tqdm(range(POINTS), desc="Calculating sampling loss values in the 
         model_perb = get_params(model_current, model_perb, top_eigenvector[i], lams[next_pos[i]])
         model_current = copy.deepcopy(model_perb)
     # calculate the loss value
-    outputs = model_current(torch.cat([x,t], dim=1))
+    # outputs = model_current(torch.cat([x,t], dim=1))
     # data_matrix[j] = criterion(outputs, t).detach().cpu().numpy()
-    data_matrix[j] = torch.mean((t - outputs) ** 2).detach().cpu().numpy()
+    model.dnn = copy.deepcopy(model_current)
+    if torch.is_grad_enabled():
+        model.optimizer.zero_grad()
+    u_pred = model_current(torch.cat([x, t], dim=1))
+    u_pred_lb = model.net_u(model.x_bc_lb, model.t_bc_lb)
+    u_pred_ub = model.net_u(model.x_bc_ub, model.t_bc_ub)
+    if model.nu != 0:
+        u_pred_lb_x, u_pred_ub_x = model.net_b_derivatives(u_pred_lb, u_pred_ub, model.x_bc_lb, model.x_bc_ub)
+    f_pred = model.net_f(model.x_f, model.t_f)
+    
+    if model.loss_style == 'mean':
+        loss_u = torch.mean((t - u_pred) ** 2)
+        loss_b = torch.mean((u_pred_lb - u_pred_ub) ** 2)
+        if model.nu != 0:
+            loss_b += torch.mean((u_pred_lb_x - u_pred_ub_x) ** 2)
+        loss_f = torch.mean(f_pred ** 2)
+    elif model.loss_style == 'sum':
+        loss_u = torch.mean((t - u_pred) ** 2)
+        loss_b = torch.sum((u_pred_lb - u_pred_ub) ** 2)
+        if model.nu != 0:
+            loss_b += torch.sum((u_pred_lb_x - u_pred_ub_x) ** 2)
+        loss_f = torch.sum(f_pred ** 2)
+
+    loss = loss_u + loss_b + model.L*loss_f
+    data_matrix[j] = loss.detach().cpu().numpy()
+
+    # data_matrix[j] = torch.mean((t - outputs) ** 2).detach().cpu().numpy()
     # print("Loss value: ", data_matrix[j])
     # model.dnn = model_current
     # data_matrix[j] = model.loss_pinn().detach().cpu().numpy()
     # print("Loss value: ", data_matrix[j])
 
-# # save the loss values
-# np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.npy", data_matrix)
-# # save the coordinates
-# np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian_coordinates.npy", loss_coordinates)
+# save the loss values
+np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.npy", data_matrix)
+# save the coordinates
+np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian_coordinates.npy", loss_coordinates)
 
 # plot the loss values
 X, Y = np.meshgrid(np.linspace(START, END, STEPS), np.linspace(START, END, STEPS))
