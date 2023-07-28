@@ -1,13 +1,15 @@
 import sys
 sys.path.append('../')
 
-import argparse
-import numpy as np
-import torch
-import time
 import copy
+import time
+import argparse
+import matplotlib
+import numpy as np
+import argparse
+import torch
+import torch.nn
 import tqdm
-import matplotlib.pyplot as plt
 
 from net_pbc import *
 from systems_pbc import *
@@ -15,13 +17,18 @@ from utils import *
 from visualize import *
 from PyHessian.pyhessian import hessian_pinn
 
+matplotlib.rcParams['figure.figsize'] = [18, 12]
+
 def get_params(model_orig,  model_perb, direction, alpha):
     for m_orig, m_perb, d in zip(model_orig.parameters(), model_perb.parameters(), direction):
         m_perb.data = m_orig.data + alpha * d
     return model_perb
 
-parser = argparse.ArgumentParser(description='Hessian of PINNs')
+# device
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+FLAG = True if torch.cuda.is_available() else False
 
+parser = argparse.ArgumentParser(description='High Dim Hessian of PINNs')
 parser.add_argument('--system', type=str, default='convection', help='System to study.')
 parser.add_argument('--seed', type=int, default=0, help='Random initialization.')
 parser.add_argument('--N_f', type=int, default=100, help='Number of collocation points to sample.')
@@ -45,19 +52,11 @@ parser.add_argument('--loss_style', default='mean', help='Loss for the network (
 parser.add_argument('--visualize', default=False, help='Visualize the solution.')
 parser.add_argument('--save_model', default=False, help='Save the model for analysis later.')
 
-parser.add_argument('--dim', default=2, help='dimension for hessian loss values calculation')
+parser.add_argument('--dim', default=3, help='dimension for hessian loss values calculation')
 parser.add_argument('--steps', default=40, help='steps for hessian loss values calculation')
-parser.add_argument('--points', default=1600, help='total points while sampling for hessian loss values calculation')
+parser.add_argument('--points', default=64000, help='total points while sampling for hessian loss values calculation')
 
 args = parser.parse_args()
-
-FLAG = False
-# CUDA support
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-    FLAG = True
-else:
-    device = torch.device('cpu')
 
 nu = args.nu
 beta = args.beta
@@ -149,8 +148,10 @@ model = torch.load(f"saved_models/pretrained_{args.system}_u0{args.u0_str}_nu{nu
 model.dnn.eval()
 
 # make sure the numbers of sampling points is less than the total number of points
-if POINTS > STEPS ** DIM:
+FULL_CUBE = False
+if POINTS >= STEPS ** DIM:
     POINTS = STEPS ** DIM
+    FULL_CUBE = True
     print("Full cube calculation. Total points: ", POINTS)
 else:
     print("Random sampling cube calculation. Total points: ", POINTS)
@@ -184,17 +185,25 @@ if FLAG == True:
     y = y.cuda()
 
 # Generate the loss values array using BFS
-# Create a coordinate array for loss values
+# Create a coordinate sampling array for loss values
 loss_coordinates_list = []
-pbar = tqdm.tqdm(total=POINTS, desc="Generating 2-D coordinates in the subspace")
-for i in range(STEPS):
-    for j in range(STEPS):
-        t = (i,j)
-        loss_coordinates_list.append(t)
-        pbar.update(1)
-pbar.close()
-loss_coordinates = np.array(loss_coordinates_list)
-
+if FULL_CUBE == False:
+    pbar = tqdm.tqdm(total=POINTS, desc="Generating sampling coordinates in the subspace")
+    while len(loss_coordinates_list) < POINTS:
+        t = ()
+        for j in range(DIM):
+            t += (np.random.randint(0, STEPS),)
+        if t not in loss_coordinates_list:
+            loss_coordinates_list.append(t)
+            pbar.update(1)
+    pbar.close()
+    loss_coordinates = np.asarray(loss_coordinates_list)
+else:
+    print("Generating full cube coordinates in the subspace")
+    loss_coordinates = np.empty([POINTS, DIM], dtype=int)
+    for i in range(POINTS):
+        loss_coordinates[i] = np.unravel_index(i, (STEPS,)*DIM)
+        
 # verify the shape of the loss coordinates
 print(loss_coordinates.shape)
 
@@ -252,25 +261,10 @@ for j in tqdm.tqdm(range(POINTS), desc="Calculating sampling loss values in the 
     loss = loss_u + loss_b + model.L*loss_f
     data_matrix[j] = loss.detach().cpu().numpy()
 
-    # data_matrix[j] = torch.mean((t - outputs) ** 2).detach().cpu().numpy()
-    # print("Loss value: ", data_matrix[j])
-    # model.dnn = model_current
-    # data_matrix[j] = model.loss_pinn().detach().cpu().numpy()
-    # print("Loss value: ", data_matrix[j])
-
 # save the loss values
-np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.npy", data_matrix)
+np.save(f"high_dim_hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_dim{DIM}_points{POINTS}_hessian.npy", data_matrix)
 # save the coordinates
-np.save(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian_coordinates.npy", loss_coordinates)
-
-# plot the loss values
-X, Y = np.meshgrid(np.linspace(START, END, STEPS), np.linspace(START, END, STEPS))
-Z = data_matrix.reshape(STEPS, STEPS)
-fig, ax = plt.subplots()
-ax.contour(X, Y, Z, levels=80)
-plt.title('Hessian Loss landscape of a PINN on '+ f"pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}")
-# plt.savefig('../models/loss_landscape_'+ DATA + '_' + MODEL + '_hessian.png')
-plt.savefig(f"hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_hessian.png")
+np.save(f"high_dim_hessian/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}_dim{DIM}_points{POINTS}_hessian_coordinates.npy", loss_coordinates)
 
 end = time.time()
 print('Time taken: ', end - start)
