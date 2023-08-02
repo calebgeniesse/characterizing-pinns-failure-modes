@@ -17,13 +17,20 @@
 # python3 main_pbc.py --system=reaction --rho=9.0 --visualiz=True --save_model=True
 # python3 main_pbc.py --system=reaction --rho=10.0 --visualiz=True --save_model=True
 
-python3 main_pbc.py --seed=123 --beta=1.0 --visualiz=True --save_model=True
-python3 main_pbc.py --seed=123 --beta=50.0 --visualiz=True --save_model=True
+# python3 main_pbc.py --seed=123 --beta=1.0 --visualiz=True --save_model=True
+# python3 main_pbc.py --seed=123 --beta=50.0 --visualiz=True --save_model=True
 
-python3 main_pbc.py --seed=123456 --beta=1.0 --visualiz=True --save_model=True
-python3 main_pbc.py --seed=123456 --beta=50.0 --visualiz=True --save_model=True
+# python3 main_pbc.py --seed=123456 --beta=1.0 --visualiz=True --save_model=True
+# python3 main_pbc.py --seed=123456 --beta=50.0 --visualiz=True --save_model=True
 
-python3 main_pbc.py --seed=2023 --beta=1.0 --visualiz=True --save_model=True
-python3 main_pbc.py --seed=2023 --beta=50.0 --visualiz=True --save_model=True
+# python3 main_pbc.py --seed=2023 --beta=1.0 --visualiz=True --save_model=True
+# python3 main_pbc.py --seed=2023 --beta=50.0 --visualiz=True --save_model=True
+
+python3 main_pbc.py --system=diffusion --nu=1.0 --visualiz=True --save_model=True
+python3 main_pbc.py --system=diffusion --nu=0.1 --visualiz=True --save_model=True
+python3 main_pbc.py --system=diffusion --nu=0.01 --visualiz=True --save_model=True
+python3 main_pbc.py --system=diffusion --nu=0.001 --visualiz=True --save_model=True
+python3 main_pbc.py --system=diffusion --nu=0.0001 --visualiz=True --save_model=True
+python3 main_pbc.py --system=diffusion --nu=0.00001 --visualiz=True --save_model=True
 
 echo "Finished all runs"
