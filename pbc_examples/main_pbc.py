@@ -149,8 +149,8 @@ if args.visualize:
     u_predict(u_vals, u_pred, x, t, nu, beta, rho, args.seed, orig_layers, args.N_f, args.L, args.source, args.lr, args.u0_str, args.system, path=path)
 
 if args.save_model: # whether or not to save the model
-    path = "saved_models"
+    path = f"saved_models/lr_{args.lr}/beta_{beta}/"
     if not os.path.exists(path):
         os.makedirs(path)
     if 'pretrained' not in args.net: # only save new models
-        torch.save(model, f"saved_models/pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}.pt")
+        torch.save(model, path + f"pretrained_{args.system}_u0{args.u0_str}_nu{nu}_beta{beta}_rho{rho}_Nf{args.N_f}_{args.layers}_L{args.L}_source{args.source}_seed{args.seed}.pt")
