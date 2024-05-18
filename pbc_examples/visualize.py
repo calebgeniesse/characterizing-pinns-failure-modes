@@ -23,13 +23,13 @@ def exact_u(Exact, x, t, nu, beta, rho, layers, N_f, L, source, u0_str, system, 
 
     ax.set_xlabel('t', fontweight='bold', size=30)
     ax.set_ylabel('x', fontweight='bold', size=30)
-    ax.legend(
-        loc='upper center',
-        bbox_to_anchor=(0.9, -0.05),
-        ncol=5,
-        frameon=False,
-        prop={'size': 15}
-    )
+    # ax.legend(
+    #     loc='upper center',
+    #     bbox_to_anchor=(0.9, -0.05),
+    #     ncol=5,
+    #     frameon=False,
+    #     prop={'size': 15}
+    # )
 
     ax.tick_params(labelsize=15)
 
@@ -62,13 +62,13 @@ def u_diff(Exact, U_pred, x, t, nu, beta, rho, seed, layers, N_f, L, source, lr,
     ax.set_xlabel('t', fontweight='bold', size=30)
     ax.set_ylabel('x', fontweight='bold', size=30)
 
-    ax.legend(
-        loc='upper center',
-        bbox_to_anchor=(0.9, -0.05),
-        ncol=5,
-        frameon=False,
-        prop={'size': 15}
-    )
+    # ax.legend(
+    #     loc='upper center',
+    #     bbox_to_anchor=(0.9, -0.05),
+    #     ncol=5,
+    #     frameon=False,
+    #     prop={'size': 15}
+    # )
 
     ax.tick_params(labelsize=15)
 
@@ -96,13 +96,13 @@ def u_predict(u_vals, U_pred, x, t, nu, beta, rho, seed, layers, N_f, L, source,
     ax.set_xlabel('t', fontweight='bold', size=30)
     ax.set_ylabel('x', fontweight='bold', size=30)
 
-    ax.legend(
-        loc='upper center',
-        bbox_to_anchor=(0.9, -0.05),
-        ncol=5,
-        frameon=False,
-        prop={'size': 15}
-    )
+    # ax.legend(
+    #     loc='upper center',
+    #     bbox_to_anchor=(0.9, -0.05),
+    #     ncol=5,
+    #     frameon=False,
+    #     prop={'size': 15}
+    # )
 
     ax.tick_params(labelsize=15)
 
