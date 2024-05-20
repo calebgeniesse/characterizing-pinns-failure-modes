@@ -73,6 +73,7 @@ def u_diff(Exact, U_pred, x, t, nu, beta, rho, seed, layers, N_f, L, source, lr,
     ax.tick_params(labelsize=15)
 
     plt.savefig(f"{path}/udiff_{system}_nu{nu}_beta{beta}_rho{rho}_Nf{N_f}_{layers}_L{L}_seed{seed}_source{source}_{u0_str}_lr{lr}.pdf")
+    plt.close()
 
     return None
 
