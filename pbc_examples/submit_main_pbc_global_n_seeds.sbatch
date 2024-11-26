@@ -34,7 +34,7 @@ export PYTHONUNBUFFERED=1
 
 for beta in 1 50 ; do 
 
-    _cmd="python3 main_pbc_global_n_seeds.py --beta=${beta} --lr=1.0 --n_seeds=100 --visualiz=True --save_model=True"; 
+    _cmd="python3 main_pbc_global_n_seeds.py --beta=${beta} --lr=1.0 --n_seeds=100 --visualize=True --save_model=True"; 
 
     echo ""
     echo $_cmd
